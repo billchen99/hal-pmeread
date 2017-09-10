@@ -8,9 +8,10 @@ base_url = 'http://export.arxiv.org/api/query?';
 feedparser._FeedParserMixin.namespaces['http://a9.com/-/spec/opensearch/1.1/'] = 'opensearch'
 feedparser._FeedParserMixin.namespaces['http://arxiv.org/schemas/atom'] = 'arxiv'
 
+#inputs search_query and returns array of abstracts
 def get_info(search_query, max_results = 5, start = 0):
     summary_arr = []
-    search_query = all + search_query
+    search_query = "all:" + search_query
 
     query = 'search_query=%s&start=%i&max_results=%i' % (search_query,
                                                          start,
@@ -26,4 +27,4 @@ def get_info(search_query, max_results = 5, start = 0):
 
 
 #sample use of the function
-print get_info("all:proton", max_results = 1);
+print get_info("neutron", max_results = 3)[2];

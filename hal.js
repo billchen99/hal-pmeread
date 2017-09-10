@@ -4,8 +4,8 @@
  *
  */
 var max_res =50;
-var url = 'http://export.arxiv.org/api/query?search_query=cat:cs.CV+OR+cat:cs.AI+OR+cat:cs.LG+OR+cat:cs.CL+OR+cat:cs.NE+OR+cat:stat.ML&start=0&max_results='+max_res+'&sortBy=lastUpdatedDate';
-
+var url = 'http://export.arxiv.org/api/query?search_query=cat:q-bio.M+OR+cat:q-bio.CB+OR+cat:q-bio.GN+OR+cat:q-bio.MN+OR+cat:q-bio.NC+OR+cat:q-bio.OT+OR+cat:q-bio.PE+OR+cat:q-bio.QM+OR+cat:q-bio.SC+OR+cat:q-bio.TO&start=0&max_results='+max_res+'&sortBy=lastUpdatedDate';
+// http://export.arxiv.org/api/query?search_query=cat:q-bio.M+OR+cat:q-bio.CB+OR+cat:q-bio.GN+OR+cat:q-bio.MN+OR+cat:q-bio.NC+OR+cat:q-bio.OT+OR+cat:q-bio.PE+OR+cat:q-bio.QM+OR+cat:q-bio.SC+OR+cat:q-bio.TO&start=0&max_results=50&sortBy=lastUpdatedDate'
 var FeedParser = require('feedparser');
 var request = require('request'); // for fetching the feed
 

@@ -26,7 +26,7 @@ import feedparser
 base_url = 'http://export.arxiv.org/api/query?';
 
 # Search parameters
-search_query = 'all:electron' # search for electron in all fields
+search_query = 'all:cancer' # search for electron in all fields
 start = 0                     # retreive the first 5 results
 max_results = 5
 
