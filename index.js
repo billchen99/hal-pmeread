@@ -1,11 +1,11 @@
-var max_res =50;
+var max_res =25;
 var url = 'http://export.arxiv.org/api/query?search_query=cat:cs.CV+OR+cat:cs.AI+OR+cat:cs.LG+OR+cat:cs.CL+OR+cat:cs.NE+OR+cat:stat.ML&start=0&max_results='+max_res+'&sortBy=lastUpdatedDate';
 
 var FeedParser = require('feedparser');
 var request = require('request'); // for fetching the feed
 var subjectSlot;
 var usedTitles = [];
-var json = `{
+var lpapers = `{
   "papers": [
     {
       "title": "Why DNA?",
@@ -45,6 +45,21 @@ var json = `{
     }
   ]
 }`;
+
+//helper function that gets a summary from a category field
+function getSummaryFromCategory(category){
+  var arr_from_json = JSON.parse(lpapers).papers;
+  for (var i = 0; i < arr_from_json.length; i++){
+    if (arr_from_json[i].category == category){
+      if (usedTitles.indexOf(arr_from_json[i].title) < 0){
+        usedTitles.push(arr_from_json.title);
+        return arr_from_json[i];
+      }
+    }
+  }
+  return null;
+}
+
 // Route the incoming request based on type (LaunchRequest, IntentRequest,
 // etc.) The JSON body of the request is provided in the event parameter.
 exports.handler = function (event, context) {
@@ -90,16 +105,16 @@ exports.handler = function (event, context) {
 /**
  * Called when the session starts.
  */
-var justReadAnAbstract;
-var justReadASummary;
-
+var localPaperRead;
+var recentPaperRead;
+var localPaper;
 var papers= [];
 
 function onSessionStarted(sessionStartedRequest, session) {
     console.log("onSessionStarted requestId=" + sessionStartedRequest.requestId +
         ", sessionId=" + session.sessionId);
-    justReadAnAbstract = false;
-    justReadASummary = false;
+    localPaperRead = false;
+    recentPaperRead = false;
     papers= [];
 }
 
@@ -118,40 +133,63 @@ function onLaunch(launchRequest, session, callback) {
  * Called when the user specifies an intent for this skill.
  */
 function onIntent(intentRequest, session, callback) {
+
     console.log("onIntent requestId=" + intentRequest.requestId +
         ", sessionId=" + session.sessionId);
 
-    var intent = intentRequest.intent,
-        intentName = intentRequest.intent.name;
+    var intent = intentRequest.intent;
 
-    // Dispatch to your skill's intent handlers
-    if ("GetRecentPapersIntent" === intentName) {
+    switch (intentRequest.intent.name) {
+
+    case "makeRecentSummaryIntent":
         GetRecentPapersInSession(intent, session, callback);
-    } else if ("findSummaryIntent" === intentName){
+        break;
+
+    case "makeLocalSummaryIntent":
         subjectSlot = intent.slots.subject.value;
+        localPaper = getSummaryFromCategory(subjectSlot);
+        console.log(subjectSlot);
+        console.log(localPaper)
         findSummary(intent, session, callback);
-    } else if ("completeSummaryIntent" === intentName && justReadASummary) {
-        completeSummary(intent, session, callback);
-    } else if ("GetNextEventIntent" === intentName) {
-        if (justReadAnAbstract) {
-            justReadAnAbstract = false;
+        localPaperRead = true;
+        break;
+
+    case "GetNextEventIntent":
+        if (recentPaperRead) {
+            recentPaperRead = false;
             GetNo(intent, session, callback);
+        } else if (localPaperRead) {
+            localPaperRead = false;
+            completeSummary(intent, session, callback);
         } else {
             GetNextPaper(intent, session, callback);
         }
-    } else if ("GetNoIntent" === intentName) {
-        if (justReadAnAbstract) {
+        break;
+
+    case "GetNoIntent":
+        if (recentPaperRead || localPaperRead) {
             handleSessionEndRequest(callback);
         } else {
             GetNo(intent, session, callback);
         }
-    } else if ("AMAZON.HelpIntent" === intentName) {
+        break;
+
+    case "AMAZON.HelpIntent":
         getHelpResponse(callback);
-    } else if ("AMAZON.StopIntent" === intentName || "AMAZON.CancelIntent" === intentName) {
+        break;
+
+    case "AMAZON.StopIntent":
         handleSessionEndRequest(callback);
-    } else {
+        break;
+
+    case "AMAZON.CancelIntent":
+        handleSessionEndRequest(callback);
+        break;
+
+    default:
         throw "Invalid intent";
     }
+
 }
 
 /**
@@ -193,7 +231,7 @@ quickly inform you about a wide subject matter.";
     var cardText = "You can say things like, I want to learn more about biology, and I will present a short summaries of a variety of papers on biology";
     // If the user either does not reply to the welcome message or says something that is not
     // understood, they will be prompted again with this text.
-    var repromptText = "You can say things like, tell me about recent developments in biology";
+    var repromptText = "You can say things like, tell me about recent developments in Artificial Intelligence";
     var shouldEndSession = false;
 
     callback(sessionAttributes,
@@ -280,7 +318,7 @@ feedparser.on('end', function(){
 
     session.attributes = sessionAttributes;
 
-    speechOutput = "Here are the 50 most recent papers: " + papers[sessionAttributes.index]['title'] + ", Would you like me to read the abstract?";
+    speechOutput = "Here are the 25 most recent papers: " + papers[sessionAttributes.index]['title'] + ", Would you like me to read the abstract?";
     repromptText = "You can say things like, yes or  no. Would you like me to read the abstract?";
     cardTitle = papers[sessionAttributes.index]['title'];
     cardText = papers[sessionAttributes.index]['abstract'];
@@ -289,10 +327,6 @@ feedparser.on('end', function(){
 
 
 });
-
-
-
-
 }
 
 function GetNextPaper(intent, session, callback) {
@@ -306,7 +340,7 @@ function GetNextPaper(intent, session, callback) {
 
     speechOutput = papers[sessionAttributes.index]['abstract'] + ", Would you like me to continue to the next paper?" ;
         repromptText = "You can say things like, yes or  no. Would you like to continue to the next paper?";
-    justReadAnAbstract = true;
+    recentPaperRead = true;
     cardText = ""; //papers[sessionAttributes.index]['abstract'];
 
     callback(sessionAttributes,
@@ -337,19 +371,6 @@ function GetNo(intent, session, callback) {
          buildSpeechletResponse(cardTitle,cardText, speechOutput, repromptText, shouldEndSession));
 }
 
-//helper function that gets a summary from a category field
-function getSummaryFromCategory(category){
-  var arr_from_json = JSON.parse(json).papers;
-  for (var i = 0; i < arr_from_json.length; i++){
-    if (arr_from_json[i].category == category){
-      if (!usedTitles.includes(arr_from_json[i].title){
-        return arr_from_json[i].summary;
-        usedTitles.push(arr_from_json.title);
-      }
-    }
-  }
-  return "No summary found";
-}
 function findSummary(intent,session, callback) {
     var cardTitle = "";
     var repromptText = "";
@@ -357,11 +378,11 @@ function findSummary(intent,session, callback) {
     var shouldEndSession = false;
     var speechOutput = "";
     var cardText="";
-    var summary = getSummary(subjectSlot);
+
     //would need to define a summary
-    speechOutput = summary + ", Would you like me to continue to the next paper?" ;
-        repromptText = "You can say things like, yes or  no. Would you like to continue to the next paper?";
-    justReadASummary = true;
+    speechOutput = "The title of the paper is " + localPaper.title+", and it is about," + localPaper.summary + ", If you are interested, would you like to hear the abstract?" ;
+        repromptText = "You can say things like, yes or  no. Would you like to hear the abstract??";
+    localPaperRead = true;
     cardText = "";
 
     callback(sessionAttributes,
@@ -375,11 +396,11 @@ function completeSummary(intent, session, callback) {
     var shouldEndSession = false;
     var speechOutput = "";
     var cardText="";
-    var abstract="This would be the abstract"
+    var abstract=
     //would need to define a summary
-    speechOutput = abstract + ", Would you like me to continue to the next paper?" ;
-        repromptText = "You can say things like, yes or  no. Would you like to continue to the next paper?";
-    justReadASummary = false;
+    speechOutput = localPaper.abstract + ", Would you like me to read another summary?" ;
+        repromptText = "You can say things like, yes or  no. Would you like me to read another summary?";
+    localPaperRead = false;
     cardText = "";
 
     callback(sessionAttributes,
